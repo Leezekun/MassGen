@@ -1,20 +1,10 @@
-import inspect
 import json
-import random
 import subprocess
 import sys
-import time
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Any, Union, Optional, Dict, List
 import ast
 import operator
 import math
-
-# Global tool registry
-register_tool = {}
-
-# Mock functions removed - actual functionality is implemented in agent classes
+from typing import Any, Optional, Dict
 
 def python_interpreter(code: str, timeout: Optional[int] = 10) -> Dict[str, Any]:
     """
@@ -155,12 +145,4 @@ def calculator(expression: str) -> float:
             "expression": expression,
             "error": str(e),
             "success": False
-        }
-
-
-# Register tools in the global registry
-register_tool["python_interpreter"] = python_interpreter
-register_tool["calculator"] = calculator
-
-if __name__ == "__main__":
-    print(calculator("24423 + 312 * log(10)")) 
+        } 
