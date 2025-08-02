@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "massgen"
-version = "0.0.1"
+dynamic = ["version"]
 description = "Multi-Agent Scaling System - A powerful framework for collaborative AI"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
@@ -12,7 +12,7 @@ license = { text = "Apache-2.0" }
 authors = [
     { name = "MassGen Team", email = "contact@massgen.dev" }
 ]
-keywords = ["ai", "multi-agent", "collaboration", "orchestration", "llm", "gpt", "claude", "gemini", "grok"]
+keywords = ["ai", "multi-agent", "collaboration", "orchestration", "llm", "claude", "gemini", "gpt", "xai"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -34,6 +34,9 @@ dependencies = [
     "PyYAML>=6.0.0",
     "google-genai>=1.27.0",
     "xai-sdk>=0.0.1",
+    "anthropic>=0.60.0",
+    "rich>=14.1.0",
+    "nest-asyncio>=1.6.0",
 ]
 
 [project.optional-dependencies]
@@ -56,7 +59,6 @@ docs = [
     "myst-parser>=1.0.0",
 ]
 all = [
-    "google-generativeai>=0.3.0",
     "anthropic>=0.18.0",
 ]
 
@@ -73,6 +75,9 @@ Documentation = "https://github.com/Leezekun/MassGen/blob/main/README.md"
 [tool.setuptools]
 include-package-data = true
 zip-safe = false
+
+[tool.setuptools.dynamic]
+version = {attr = "massgen.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["."]
