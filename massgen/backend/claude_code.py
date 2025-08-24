@@ -64,6 +64,7 @@ from claude_code_sdk import (  # type: ignore
 
 
 from .base import LLMBackend, StreamChunk
+from ..logger_config import log_backend_activity, log_backend_agent_message, log_stream_chunk, logger
 
 
 class ClaudeCodeBackend(LLMBackend):
@@ -377,7 +378,7 @@ class ClaudeCodeBackend(LLMBackend):
                 if t.get("function", {}).get("name") in ["new_answer", "vote"]
             ]
             if workflow_tools:
-                system_parts.append("\n--- Available Tools ---")
+                system_parts.append("\n--- Coordination Actions ---")
                 for tool in workflow_tools:
                     name = tool.get("function", {}).get("name", "unknown")
                     description = tool.get("function", {}).get(
@@ -389,7 +390,7 @@ class ClaudeCodeBackend(LLMBackend):
                     if name == "new_answer":
                         system_parts.append(
                             '    Usage: {"tool_name": "new_answer", '
-                            '"arguments": {"content": "your answer"}}'
+                            '"arguments": {"content": "your improved answer. If any builtin tools like search or code execution were used, include how they are used here."}}'
                         )
                     elif name == "vote":
                         # Extract valid agent IDs from enum if available
@@ -420,14 +421,14 @@ class ClaudeCodeBackend(LLMBackend):
                                 '"reason": "explanation"}}'
                             )
 
-                system_parts.append("\n--- MassGen Workflow Instructions ---")
+                system_parts.append("\n--- MassGen Coordination Instructions ---")
                 system_parts.append(
                     "IMPORTANT: You must respond with a structured JSON decision at the end of your response."
                 )
-                system_parts.append(
-                    "You must use the coordination tools (new_answer, vote) "
-                    "to participate in multi-agent workflows."
-                )
+                # system_parts.append(
+                #     "You must use the coordination tools (new_answer, vote) "
+                #     "to participate in multi-agent workflows."
+                # )
                 # system_parts.append(
                 #     "Make sure to include the JSON in the exact format shown in the usage examples above.")
                 system_parts.append(
@@ -444,6 +445,39 @@ class ClaudeCodeBackend(LLMBackend):
                 )
 
         return "\n".join(system_parts)
+
+    async def _log_backend_input(self, messages, system_prompt, tools, kwargs):
+        """Log backend inputs using StreamChunk for visibility (enabled by default)."""
+        # Enable by default, but allow disabling via environment variable
+        if os.getenv('MASSGEN_LOG_BACKENDS', '1') == '0':
+            return
+            
+        try:
+            # Create debug info using the logging approach that works in MassGen
+            reset_mode = "🔄 RESET" if kwargs.get('reset_chat') else "💬 CONTINUE"  
+            tools_info = f"🔧 {len(tools)} tools" if tools else "🚫 No tools"
+            
+            debug_info = f"[BACKEND] {reset_mode} | {tools_info} | Session: {self._current_session_id}"
+            
+            if system_prompt and len(system_prompt) > 0:
+                # Show full system prompt in debug logging
+                debug_info += f"\n[SYSTEM_FULL] {system_prompt}"
+                
+                
+            # Yield a debug chunk that will be captured by the logging system
+            yield StreamChunk(
+                type="debug",
+                content=debug_info,
+                source="claude_code_backend"
+            )
+                
+        except Exception as e:
+            # Log the error but don't break backend execution
+            yield StreamChunk(
+                type="debug",
+                content=f"[BACKEND_LOG_ERROR] {str(e)}",
+                source="claude_code_backend"
+            )
 
     def extract_structured_response(
         self, response_text: str
@@ -674,6 +708,7 @@ class ClaudeCodeBackend(LLMBackend):
         Returns:
             ClaudeSDKClient instance
         """
+
         # Build options with all parameters
         options = self._build_claude_options(**options_kwargs)
 
@@ -697,6 +732,15 @@ class ClaudeCodeBackend(LLMBackend):
         Yields:
             StreamChunk objects with response content and metadata
         """
+        # Extract agent_id from kwargs if provided
+        agent_id = kwargs.get('agent_id', None)
+        
+        log_backend_activity(
+            self.get_provider_name(),
+            "Starting stream_with_tools",
+            {"num_messages": len(messages), "num_tools": len(tools) if tools else 0},
+            agent_id=agent_id
+        )
         # Merge constructor config with stream kwargs (stream kwargs take priority)
         all_params = {**self.config, **kwargs}
         # Check if we already have a client
@@ -712,36 +756,45 @@ class ClaudeCodeBackend(LLMBackend):
                     "Bash(chmod*)",
                     "Bash(chown*)",
                 ]
-                # Extract system message from messages for append mode
-                system_msg = next(
-                    (msg for msg in messages if msg.get("role") == "system"), None
+
+            # Extract system message from messages for append mode (always do this)
+            system_msg = next(
+                (msg for msg in messages if msg.get("role") == "system"), None
+            )
+            if system_msg:
+                system_content = system_msg.get("content", "")  # noqa: E128
+            else:
+                system_content = ""
+            
+            # Build system prompt with tools information
+            workflow_system_prompt = self._build_system_prompt_with_workflow_tools(
+                tools or [], system_content
+            )
+            # Handle different system prompt mode
+            if all_params.get("system_prompt"):
+                # Create client with system_prompt
+                client = self.create_client(
+                    **{**all_params, "system_prompt": workflow_system_prompt}
                 )
-                if system_msg:
-                    system_content = system_msg.get("content", "")  # noqa: E128
-                else:
-                    system_content = ""
-                # Build system prompt with tools information
-                workflow_system_prompt = self._build_system_prompt_with_workflow_tools(
-                    tools or [], system_content
+            else:
+                # Create client with the enhanced system prompt
+                client = self.create_client(
+                    **{**all_params, "append_system_prompt": workflow_system_prompt}
                 )
-                # Handle different system prompt mode
-                if all_params.get("system_prompt"):
-                    # Create client with system_prompt
-                    client = self.create_client(
-                        system_prompt=workflow_system_prompt, **all_params
-                    )
-                else:
-                    # Create client with the enhanced system prompt
-                    client = self.create_client(
-                        append_system_prompt=workflow_system_prompt, **all_params
-                    )
+
 
         # Connect client if not already connected
         if not client._transport:
             await client.connect()
 
+        # Log backend inputs when we have workflow_system_prompt available
+        if 'workflow_system_prompt' in locals():
+            async for debug_chunk in self._log_backend_input(messages, workflow_system_prompt, tools, kwargs):
+                yield debug_chunk
+
         # Format the messages for Claude Code
         if not messages:
+            log_stream_chunk("backend.claude_code", "error", "No messages provided to stream_with_tools", agent_id)
             # No messages to process - yield error
             yield StreamChunk(
                 type="error",
@@ -755,6 +808,7 @@ class ClaudeCodeBackend(LLMBackend):
         assistant_messages = [msg for msg in messages if msg.get("role") == "assistant"]
 
         if assistant_messages:
+            log_stream_chunk("backend.claude_code", "error", "Claude Code backend cannot accept assistant messages - it maintains its own conversation history", agent_id)
             yield StreamChunk(
                 type="error",
                 error="Claude Code backend cannot accept assistant messages - it maintains its own conversation history",
@@ -763,6 +817,7 @@ class ClaudeCodeBackend(LLMBackend):
             return
 
         if not user_messages:
+            log_stream_chunk("backend.claude_code", "error", "No user messages found to send to Claude Code", agent_id)
             yield StreamChunk(
                 type="error",
                 error="No user messages found to send to Claude Code",
@@ -779,8 +834,15 @@ class ClaudeCodeBackend(LLMBackend):
         if user_contents:
             # Join multiple user messages with newlines
             combined_query = "\n\n".join(user_contents)
+            log_backend_agent_message(
+                agent_id or "default",
+                "SEND",
+                {"system": workflow_system_prompt, "user": combined_query},
+                backend_name=self.get_provider_name()
+            )
             await client.query(combined_query)
         else:
+            log_stream_chunk("backend.claude_code", "error", "All user messages were empty", agent_id)
             yield StreamChunk(
                 type="error", error="All user messages were empty", source="claude_code"
             )
@@ -797,12 +859,26 @@ class ClaudeCodeBackend(LLMBackend):
                             accumulated_content += block.text
 
                             # Yield content chunk
+                            log_backend_agent_message(
+                                agent_id or "default",
+                                "RECV",
+                                {"content": block.text},
+                                backend_name=self.get_provider_name()
+                            )
+                            log_stream_chunk("backend.claude_code", "content", block.text, agent_id)
                             yield StreamChunk(
                                 type="content", content=block.text, source="claude_code"
                             )
 
                         elif isinstance(block, ToolUseBlock):
                             # Claude Code's builtin tool usage
+                            log_backend_activity(
+                                self.get_provider_name(),
+                                f"Builtin tool called: {block.name}",
+                                {"tool_id": block.id},
+                                agent_id=agent_id
+                            )
+                            log_stream_chunk("backend.claude_code", "tool_use", {"name": block.name, "input": block.input}, agent_id)
                             yield StreamChunk(
                                 type="content",
                                 content=f"🔧 {block.name}({block.input})",
@@ -814,6 +890,7 @@ class ClaudeCodeBackend(LLMBackend):
                             # Note: ToolResultBlock.tool_use_id references
                             # the original ToolUseBlock.id
                             status = "❌ Error" if block.is_error else "✅ Result"
+                            log_stream_chunk("backend.claude_code", "tool_result", {"is_error": block.is_error, "content": block.content}, agent_id)
                             yield StreamChunk(
                                 type="content",
                                 content=f"🔧 Tool {status}: {block.content}",
@@ -825,6 +902,7 @@ class ClaudeCodeBackend(LLMBackend):
                         accumulated_content
                     )
                     if workflow_tool_calls:
+                        log_stream_chunk("backend.claude_code", "tool_calls", workflow_tool_calls, agent_id)
                         yield StreamChunk(
                             type="tool_calls",
                             tool_calls=workflow_tool_calls,
@@ -832,6 +910,7 @@ class ClaudeCodeBackend(LLMBackend):
                         )
 
                     # Yield complete message
+                    log_stream_chunk("backend.claude_code", "complete_message", accumulated_content[:200] if len(accumulated_content) > 200 else accumulated_content, agent_id)
                     yield StreamChunk(
                         type="complete_message",
                         complete_message={
@@ -844,6 +923,7 @@ class ClaudeCodeBackend(LLMBackend):
                 elif isinstance(message, SystemMessage):
                     # System status updates
                     self._track_session_info(message=message)
+                    log_stream_chunk("backend.claude_code", "backend_status", {"subtype": message.subtype, "data": message.data}, agent_id)
                     yield StreamChunk(
                         type="backend_status",
                         status=message.subtype,
@@ -859,6 +939,7 @@ class ClaudeCodeBackend(LLMBackend):
                     self.update_token_usage_from_result_message(message)
 
                     # Yield completion
+                    log_stream_chunk("backend.claude_code", "complete_response", {"session_id": message.session_id, "cost_usd": message.total_cost_usd}, agent_id)
                     yield StreamChunk(
                         type="complete_response",
                         complete_message={
@@ -872,10 +953,12 @@ class ClaudeCodeBackend(LLMBackend):
                     )
 
                     # Final done signal
+                    log_stream_chunk("backend.claude_code", "done", None, agent_id)
                     yield StreamChunk(type="done", source="claude_code")
                     break
 
         except Exception as e:
+            log_stream_chunk("backend.claude_code", "error", str(e), agent_id)
             yield StreamChunk(
                 type="error",
                 error=f"Claude Code streaming error: {str(e)}",

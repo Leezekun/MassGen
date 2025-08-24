@@ -34,13 +34,13 @@ agents:
     # append_system_message: |
     #   **IMPORTANT: you MUST consider and MUST synthesize the provided answer by other agents (even the searched paper list by other agents). Then provide your own answer.**
 
-  - id: "gpt-5"
+  - id: "gpt-5-nano"
     backend:
       type: "openai"
-      model: "gpt-5"
+      model: "gpt-5-nano"
       reasoning:
         effort: "medium"
-        summary: "auto"
+        # summary: "auto"
       enable_web_search: true
       enable_code_interpreter: true
     # system_message: |

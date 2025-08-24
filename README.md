@@ -289,20 +289,24 @@ uv run python -m massgen.cli --backend claude_code "Debug this Python script"
 uv run python -m massgen.cli --config three_agents_default.yaml "Summarize latest news of github.com/Leezekun/MassGen"
 
 # Mixed API and CLI backends
-uv run python -m massgen.cli --config claude_code_flash2.5.yaml "Complex coding task requiring multiple perspectives"
+uv run python -m massgen.cli --config claude_code_flash2.5.yaml "find 5 papers which are related to multi-agent scaling system Massgen, download them and list their title in markdown"
+uv run python -m massgen.cli --config claude_code_gpt5nano.yaml "find 5 papers which are related to multi-agent scaling system Massgen, download them and list their title in markdown"
 
 # Azure OpenAI configurations (NEW in v0.0.10)
 uv run python -m massgen.cli --config azure_openai_single.yaml "What is machine learning?"
 uv run python -m massgen.cli --config azure_openai_multi.yaml "Compare different approaches to renewable energy"
 
 # MCP-enabled configurations (NEW in v0.0.9)
-uv run python -m massgen.cli --config gpt5_claude_code_paper_search_mcp.yaml "search 5 papers which are related to multi-agent scaling system Massgen, download them and list their title in a md file"
 uv run python -m massgen.cli --config claude_code_discord_mcp_example.yaml "Extract 3 latest discord messages"
 uv run python -m massgen.cli --config claude_code_twitter_mcp_example.yaml "Search for the 3 latest tweets from @massgen_ai"
 
 # Hybrid local and API-based models (NEW in v0.0.7)
 uv run python -m massgen.cli --config two_agents_opensource_lmstudio.yaml "Analyze this algorithm's complexity"
 uv run python -m massgen.cli --config gpt5nano_glm_qwen.yaml "Design a distributed system architecture"
+
+# Debug mode for troubleshooting
+uv run python -m massgen.cli --model claude-3-5-sonnet-latest --debug "What is machine learning?"
+uv run python -m massgen.cli --config three_agents_default.yaml --debug "Debug multi-agent coordination"
 ```
 
 All available quick configuration files can be found [here](massgen/configs).
@@ -319,6 +323,7 @@ See MCP server setup guides: [paper-search-mcp](https://github.com/openags/paper
 | `--system-message` | System prompt for the agent in quick setup mode. If `--config` is provided, `--system-message` is omitted. |
 | `--no-display`     | Disable real-time streaming UI coordination display (fallback to simple text output).|
 | `--no-logs`        | Disable real-time logging.|
+| `--debug`          | Enable debug mode with verbose logging. Shows detailed orchestrator activities, agent messages, backend operations, and tool calls. Debug logs are saved to `agent_outputs/log_{time}/massgen_debug.log`. |
 | `"<your question>"`         | Optional single-question input; if omitted, MassGen enters interactive chat mode. |
 
 #### Configuration File Format
@@ -460,6 +465,7 @@ backend:
   api_key: "<optional_key>"          # API key for backend. Uses env vars by default.
   
   # Claude Code specific options
+  system_prompt: "" # Custom system prompt to replace default
   append_system_prompt: ""  # Custom system prompt to append
   max_thinking_tokens: 4096                   # Maximum thinking tokens
 
