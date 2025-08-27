@@ -9,13 +9,18 @@ TODOs:
 """
 
 import asyncio
+import json
 import time
+import logging
 from typing import Dict, List, Optional, Any, AsyncGenerator
 from dataclasses import dataclass, field
 from .message_templates import MessageTemplates
 from .agent_config import AgentConfig
 from .backend.base import StreamChunk
 from .chat_agent import ChatAgent
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -96,11 +101,10 @@ class Orchestrator(ChatAgent):
         self.workflow_tools = self.message_templates.get_standard_tools(
             list(agents.keys())
         )
-
         # MassGen-specific state
         self.current_task: Optional[str] = None
         self.workflow_phase: str = "idle"  # idle, coordinating, presenting
-
+        
         # Internal coordination state
         self._coordination_messages: List[Dict[str, str]] = []
         self._selected_agent: Optional[str] = None
@@ -114,6 +118,11 @@ class Orchestrator(ChatAgent):
         # Coordination state tracking for cleanup
         self._active_streams: Dict = {}
         self._active_tasks: Dict = {}
+        
+    def _get_agent_tools(self, agent_id: str) -> List[Dict[str, Any]]:
+        """Return only workflow coordination tools (vote/new_answer)."""
+        _ = agent_id  # unused
+        return self.workflow_tools.copy()
 
     async def chat(
         self,
@@ -632,7 +641,7 @@ class Orchestrator(ChatAgent):
             # Clean startup without redundant messages
 
             # Build proper conversation messages with system + user messages
-            max_attempts = 3
+            max_attempts = 5  # Increased from 3 to 5 for better MCP fallback handling
             conversation_messages = [
                 {"role": "system", "content": conversation["system_message"]},
                 {"role": "user", "content": conversation["user_message"]},
@@ -654,16 +663,20 @@ class Orchestrator(ChatAgent):
                     # First attempt: orchestrator provides initial conversation
                     # But we need the agent to have this in its history for subsequent calls
                     # First attempt: provide complete conversation and reset agent's history
+                    # Provide only coordination tools; MCP sessions handled by backend
+                    agent_tools = self._get_agent_tools(agent_id)
                     chat_stream = agent.chat(
-                        conversation_messages, self.workflow_tools, reset_chat=True
+                        conversation_messages, agent_tools, reset_chat=True
                     )
                 else:
                     # Subsequent attempts: send enforcement message (set by error handling)
 
                     if isinstance(enforcement_msg, list):
                         # Tool message array
+                        # Provide only coordination tools; MCP sessions handled by backend
+                        agent_tools = self._get_agent_tools(agent_id)
                         chat_stream = agent.chat(
-                            enforcement_msg, self.workflow_tools, reset_chat=False
+                            enforcement_msg, agent_tools, reset_chat=False
                         )
                     else:
                         # Single user message
@@ -671,8 +684,10 @@ class Orchestrator(ChatAgent):
                             "role": "user",
                             "content": enforcement_msg,
                         }
+                        # Provide only coordination tools; MCP sessions handled by backend
+                        agent_tools = self._get_agent_tools(agent_id)
                         chat_stream = agent.chat(
-                            [enforcement_message], self.workflow_tools, reset_chat=False
+                            [enforcement_message], agent_tools, reset_chat=False
                         )
                 response_text = ""
                 tool_calls = []
@@ -964,11 +979,8 @@ class Orchestrator(ChatAgent):
                             return
 
                         else:
-                            # Non-workflow tools not yet implemented
-                            yield (
-                                "content",
-                                f"🔧 used {tool_name} tool (not implemented)",
-                            )
+                            # Non-workflow tools are not supported; backend handles MCP sessions implicitly.
+                            yield ("content", f"🔧 used {tool_name} tool (ignored)")
 
                 # Case 3: Non-workflow response, need enforcement (only if no workflow tool was found)
                 if not workflow_tool_found:
@@ -1151,6 +1163,14 @@ class Orchestrator(ChatAgent):
             )
             return
 
+        # Prevent duplicate final presentation when already started (e.g., timeout path + UI call)
+        if getattr(self, "_final_presentation_started", False):
+            # Skip duplicate invocation; signal completion to downstream consumers
+            yield StreamChunk(type="done", source=selected_agent_id)
+            return
+        # Mark as started
+        self._final_presentation_started = True
+
         agent = self.agents[selected_agent_id]
 
         # Prepare context about the voting
@@ -1232,8 +1252,6 @@ class Orchestrator(ChatAgent):
                 # Use the same format as main coordination for consistency
                 yield reasoning_chunk
             elif chunk.type == "backend_status":
-                import json
-
                 status_json = json.loads(chunk.content)
                 cwd = status_json["cwd"]
                 session_id = status_json["session_id"]
@@ -1463,6 +1481,8 @@ Final Session ID: {session_id}.
         # Clear coordination state
         self._active_streams = {}
         self._active_tasks = {}
+        # Reset final presentation guard flags
+        self._final_presentation_started = False
 
 
 # =============================================================================
