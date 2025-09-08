@@ -26,6 +26,25 @@ class TimeoutConfig:
 
 
 @dataclass
+class ConsumptionConfig:
+    """Configuration for token consumption limits in MassGen.
+
+    Dynamic allocation design:
+    - User sets total budget via max_total_tokens
+    - Budget automatically split evenly among agents by default
+    - Individual agent limits can be customized via per_agent_limits
+    - Agents killed individually when they exceed their allocation
+
+    Args:
+        max_total_tokens: Total token budget for all agents (default: None = unlimited)
+        per_agent_limits: Custom limits per agent ID {agent_id: limit} (default: None = even split)
+    """
+
+    max_total_tokens: Optional[int] = None
+    per_agent_limits: Optional[Dict[str, int]] = None
+
+
+@dataclass
 class AgentConfig:
     """Configuration for MassGen agents using the proven binary decision framework.
 
@@ -50,8 +69,9 @@ class AgentConfig:
     agent_id: Optional[str] = None
     _custom_system_instruction: Optional[str] = field(default=None, init=False)
 
-    # Timeout and resource limits
+    # Resource limits
     timeout_config: TimeoutConfig = field(default_factory=TimeoutConfig)
+    consumption_config: ConsumptionConfig = field(default_factory=ConsumptionConfig)
 
     @property
     def custom_system_instruction(self) -> Optional[str]:
@@ -679,6 +699,10 @@ class AgentConfig:
             "timeout_config": {
                 "orchestrator_timeout_seconds": self.timeout_config.orchestrator_timeout_seconds,
             },
+            "consumption_config": {
+                "max_total_tokens": self.consumption_config.max_total_tokens,
+                "per_agent_limits": self.consumption_config.per_agent_limits,
+            },
         }
 
         # Handle message_templates serialization
@@ -710,6 +734,12 @@ class AgentConfig:
         timeout_data = data.get("timeout_config", {})
         if timeout_data:
             timeout_config = TimeoutConfig(**timeout_data)
+            
+        # Handle consumption_config
+        consumption_config = ConsumptionConfig()
+        consumption_data = data.get("consumption_config", {})
+        if consumption_data:
+            consumption_config = ConsumptionConfig(**consumption_data)
 
         # Handle message_templates
         message_templates = None
@@ -725,6 +755,7 @@ class AgentConfig:
             agent_id=agent_id,
             custom_system_instruction=custom_system_instruction,
             timeout_config=timeout_config,
+            consumption_config=consumption_config,
         )
 
 
