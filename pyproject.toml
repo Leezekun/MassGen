@@ -17,12 +17,10 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -41,10 +39,13 @@ dependencies = [
     "rich==14.1.0",
     "requests>=2.31.0",
     "typing-extensions>=4.0.0",
-    "claude-code-sdk>=0.0.19",
+    "claude-code-sdk>=0.0.22",
     "loguru>=0.7.0",
     "mcp>=1.12.0",
-    "aiohttp>=3.8.0"
+    "aiohttp>=3.8.0",
+    "fastmcp>=2.12.3",
+    "sphinx-rtd-theme>=3.0.2",
+    "sphinx-book-theme>=1.1.4",
 ]
 
 [project.optional-dependencies]
@@ -62,9 +63,19 @@ dev = [
     "pyupgrade>=3.7.0",
 ]
 docs = [
-    "sphinx>=5.0.0",
-    "sphinx-rtd-theme>=1.2.0",
-    "myst-parser>=1.0.0",
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=2.0.0",
+    "myst-parser>=2.0.0",
+    "sphinx-copybutton>=0.5.0",
+    "sphinx-autobuild>=2021.3.14",
+    "sphinxcontrib-mermaid>=0.9.0",
+    "sphinx-autodoc-typehints>=1.24.0",
+    "sphinx-autoapi>=3.0.0",
+    "sphinx-design>=0.5.0",
+    "sphinx-tabs>=3.4.0",
+    "sphinx-togglebutton>=0.3.0",
+    "sphinx-inline-tabs>=2023.4.21",
+    "sphinxcontrib-lunrsearch>=0.4",
 ]
 all = [
 ]
@@ -197,3 +208,17 @@ exclude_lines = [
 [tool.bandit]
 exclude_dirs = ["tests", "future_mass"]
 skips = ["B101", "B601"]  # Skip assert_used and shell_injection for test files
+
+[dependency-groups]
+dev = [
+    "astroid>=3.0.0",
+    "pre-commit>=4.3.0",
+    "pylint>=3.0.0",
+    "linkify-it-py>=2.0.3",
+    "myst-parser>=4.0.1",
+    "sphinx>=8.1.3",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-design>=0.6.1",
+    "sphinx-rtd-theme>=3.0.2",
+    "sphinx-book-theme>=1.1.4",
+]
