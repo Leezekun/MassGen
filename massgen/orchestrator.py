@@ -44,6 +44,7 @@ from .logger_config import (
 )
 from .message_templates import MessageTemplates
 from .stream_chunk import ChunkType
+from .tool import get_workflow_tools
 from .utils import ActionType, AgentStatus, CoordinationStage
 
 
@@ -138,8 +139,12 @@ class Orchestrator(ChatAgent):
 
         # Get message templates from config
         self.message_templates = self.config.message_templates or MessageTemplates()
-        # Create workflow tools for agents (vote and new_answer)
-        self.workflow_tools = self.message_templates.get_standard_tools(list(agents.keys()))
+        # Create workflow tools for agents (vote and new_answer) using new toolkit system
+        self.workflow_tools = get_workflow_tools(
+            valid_agent_ids=list(agents.keys()),
+            template_overrides=getattr(self.message_templates, "_template_overrides", {}),
+            api_format="chat_completions",  # Default format, will be overridden per backend
+        )
 
         # MassGen-specific state
         self.current_task: Optional[str] = None
@@ -1443,6 +1448,10 @@ class Orchestrator(ChatAgent):
                         # Forward MCP status messages with proper formatting
                         mcp_content = f"🔧 MCP: {chunk.content}"
                         yield ("content", mcp_content)
+                    elif chunk_type == "custom_tool_status":
+                        # Forward custom tool status messages with proper formatting
+                        custom_tool_content = f"🔧 Custom Tool: {chunk.content}"
+                        yield ("content", custom_tool_content)
                     elif chunk_type == "debug":
                         # Forward debug chunks
                         yield ("debug", chunk.content)
@@ -1694,6 +1703,9 @@ class Orchestrator(ChatAgent):
                             yield ("done", None)
                             return
                         elif tool_name.startswith("mcp"):
+                            pass
+                        elif tool_name.startswith("custom_tool"):
+                            # Custom tools are handled by the backend and their results are streamed separately
                             pass
                         else:
                             # Non-workflow tools not yet implemented
