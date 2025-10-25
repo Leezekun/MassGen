@@ -3,17 +3,32 @@
 </p>
 
 <p align="center">
-  <a href="https://www.python.org/downloads/">
-    <img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+" style="margin-right: 5px;">
-  </a>
-  <a href="LICENSE">
-    <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" style="margin-right: 5px;">
+  <a href="https://pypi.org/project/massgen/">
+    <img src="https://img.shields.io/pypi/v/massgen?style=flat-square&logo=pypi&logoColor=white&label=PyPI&color=3775A9" alt="PyPI">
   </a>
   <a href="https://docs.massgen.ai">
-    <img src="https://img.shields.io/badge/docs-massgen.ai-blue.svg" alt="Documentation" style="margin-right: 5px;">
+    <img src="https://img.shields.io/badge/docs-massgen.ai-blue?style=flat-square&logo=readthedocs&logoColor=white" alt="Documentation">
+  </a>
+  <a href="https://github.com/Leezekun/MassGen">
+    <img src="https://img.shields.io/github/stars/Leezekun/MassGen?style=flat-square&logo=github&color=181717&logoColor=white" alt="GitHub Stars">
+  </a>
+  <a href="https://www.python.org/downloads/">
+    <img src="https://img.shields.io/badge/python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-Apache%202.0-green?style=flat-square" alt="License">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://x.massgen.ai">
+    <img src="https://img.shields.io/badge/FOLLOW%20ON%20X-000000?style=for-the-badge&logo=x&logoColor=white" alt="Follow on X">
+  </a>
+  <a href="https://www.linkedin.com/company/massgen-ai">
+    <img src="https://img.shields.io/badge/FOLLOW%20ON%20LINKEDIN-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="Follow on LinkedIn">
   </a>
   <a href="https://discord.massgen.ai">
-    <img src="https://img.shields.io/discord/1153072414184452236?color=7289da&label=chat&logo=discord&style=flat-square" alt="Join our Discord">
+    <img src="https://img.shields.io/badge/JOIN%20OUR%20DISCORD-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join our Discord">
   </a>
 </p>
 
@@ -872,7 +887,7 @@ massgen --config @examples/tools/code-execution/multi_agent_playwright_automatio
   "Navigate to https://news.ycombinator.com, extract the top 10 stories, and create a summary report"
 ```
 
-→ [**See detailed case studies**](docs/case_studies/README.md) with real session logs and outcomes
+→ [**See detailed case studies**](docs/source/examples/case_studies/README.md) with real session logs and outcomes
 
 #### Interactive Mode & Advanced Usage
 
@@ -993,7 +1008,7 @@ All sessions are automatically logged with detailed information for debugging an
 
 To see how MassGen works in practice, check out these detailed case studies based on real session logs:
 
-- [**MassGen Case Studies**](docs/case_studies/README.md)
+- [**MassGen Case Studies**](docs/source/examples/case_studies/README.md)
 - [**Case Studies Documentation**](https://docs.massgen.ai/en/latest/examples/case_studies.html) - Browse case studies online
 
 ---
@@ -1038,11 +1053,11 @@ MassGen is currently in its foundational stage, with a focus on parallel, asynch
 - **Example Configurations**: 4 new YAML files in `configs/tools/custom_tools/multimodal_tools/`
 - **Example Resources**: Test files in `configs/resources/v0.1.3-example/` (image, audio, video, PDF)
 - **Documentation Updates**: Enhanced `docs/source/user_guide/multimodal.rst` and `code_execution.rst`
-- **Case Study**: New `docs/case_studies/multimodal-case-study-video-analysis.md` demonstrating multimodal video understanding
+- **Case Study**: New `docs/source/examples/case_studies/multimodal-case-study-video-analysis.md` demonstrating multimodal video understanding
 
 ### Previous Achievements (v0.0.3 - v0.1.2)
 
-✅ **Intelligent Planning Mode (v0.1.2)**: Automatic question analysis determining operation irreversibility via `_analyze_question_irreversibility()` in orchestrator, selective tool blocking with `set_planning_mode_blocked_tools()` and `is_mcp_tool_blocked()` methods, read-only MCP operations during coordination with write operations blocked, zero-configuration transparent operation, multi-workspace support, comprehensive tests in `test_intelligent_planning_mode.py`, complete guide in `docs/case_studies/INTELLIGENT_PLANNING_MODE.md`
+✅ **Intelligent Planning Mode (v0.1.2)**: Automatic question analysis determining operation irreversibility via `_analyze_question_irreversibility()` in orchestrator, selective tool blocking with `set_planning_mode_blocked_tools()` and `is_mcp_tool_blocked()` methods, read-only MCP operations during coordination with write operations blocked, zero-configuration transparent operation, multi-workspace support, comprehensive tests in `test_intelligent_planning_mode.py`, complete guide in `docs/dev_notes/intelligent_planning_mode.md`
 
 ✅ **Model Updates (v0.1.2)**: Claude 4.5 Haiku model `claude-haiku-4-5-20251001`, reorganized Claude model priorities with `claude-sonnet-4-5-20250929` default, Grok web search fix with `_add_grok_search_params()` method for proper `extra_body` parameter handling, 5 updated planning mode configurations in `configs/tools/planning/`, updated `three_agents_default.yaml` with Grok-4-fast
 
